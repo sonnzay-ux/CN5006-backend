@@ -6,6 +6,10 @@ const app = express();
 
 app.use(express.json());
 
+const getField = (body, spacedKey, camelKey) =>
+  body[spacedKey] ?? body[camelKey];
+
+
 // connect MongoDB
 connectDB();
 
@@ -40,13 +44,14 @@ app.get("/api/stats/totals/:season", async (req, res) => {
   }
 });
 
-
-// TASK 1.9: Get first 10 products where Units Sold > X
-app.get("/api/products/min-sales/:minUnits", async (req, res) => {
+// TASK 1.9: First 10 products where Units Sold > value for a given season
+app.get("/api/products/top/:season/:minUnits", async (req, res) => {
   try {
+    const season = req.params.season;
     const minUnits = parseInt(req.params.minUnits);
 
     const products = await Fashion.find({
+      "Season": season,
       "Units Sold": { $gt: minUnits }
     }).limit(10);
 
@@ -62,45 +67,104 @@ app.get("/api/products/min-sales/:minUnits", async (req, res) => {
 });
 
 
-// TASK 1.10: Get products where customer rating >= X
-app.get("/api/products/top-rating/:minRating", async (req, res) => {
+// TASK 1.10: Products where average Customer Rating for a season meets a condition
+app.get("/api/products/avg-rating/:season/:minRating", async (req, res) => {
   try {
+    const season = req.params.season;
     const minRating = parseFloat(req.params.minRating);
 
-    const products = await Fashion.find({
-      "Customer Rating": { $gte: minRating }
-    }).limit(10);
+    const result = await Fashion.aggregate([
+      { $match: { "Season": season } },
+      {
+        $group: {
+          _id: null,
+          avgCustomerRating: { $avg: "$Customer Rating" },
+          products: { $push: "$$ROOT" }
+        }
+      },
+      {
+        $match: {
+          avgCustomerRating: { $gte: minRating }
+        }
+      }
+    ]);
+
+    if (result.length === 0) {
+      return res.json({ message: "No products meet the condition" });
+    }
 
     res.json({
-      count: products.length,
-      data: products
+      season: season,
+      averageCustomerRating: result[0].avgCustomerRating,
+      products: result[0].products
     });
   } catch (error) {
-    res.status(500).json({
-      error: "Failed to fetch products by rating"
-    });
+    res.status(500).json({ error: error.message });
   }
 });
 
 
 
-// TASK 1.5: Add a new product
-app.post("/api/products", async (req, res) => {
+//1.5 add product
+app.post("/addProduct", async (req, res) => {
   try {
-    const newProduct = new Fashion(req.body);
-    const savedProduct = await newProduct.save();
+    const product = await Fashion.create({
+      "Product Category": req.body["Product Category"],
+      "Product Name": req.body["Product Name"],   
+      "Units Sold": req.body["Units Sold"],
+      "Returns": req.body["Returns"],
+      "Revenue": req.body["Revenue"],
+      "Customer Rating": req.body["Customer Rating"],
+      "Stock Level": req.body["Stock Level"],
+      "Season": req.body["Season"],
+      "Trend Score": req.body["Trend Score"]
+    });
 
-    res.status(201).json({
-      message: "Product added successfully",
-      data: savedProduct
-    });
-  } catch (error) {
-    res.status(400).json({
-      error: "Failed to add product"
-    });
+    res.json({ message: "Product added successfully", product });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
+
+
+
+// TASK 1.6: Update product by product name
+app.post("/updateProduct", async (req, res) => {
+  try {
+    const updated = await Fashion.findOneAndUpdate(
+      { "Product Name": req.body["Product Name"] },   
+      {
+        "Product Category": req.body["Product Category"],
+        "Units Sold": req.body["Units Sold"],
+        "Returns": req.body["Returns"],
+        "Revenue": req.body["Revenue"],
+        "Customer Rating": req.body["Customer Rating"],
+        "Stock Level": req.body["Stock Level"],
+        "Season": req.body["Season"],
+        "Trend Score": req.body["Trend Score"]
+      },
+      { new: true }
+    );
+
+    res.json({ message: "Product updated", updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// TASK 1.7: Delete product by product name
+app.post("/deleteProduct", async (req, res) => {
+  try {
+    const deleted = await Fashion.findOneAndDelete({
+      "Product Name": req.body["Product Name"]   
+    });
+
+    res.json({ message: "Product deleted", deleted });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 
 // TEST READ ROUTE (read 5 records from MongoDB)

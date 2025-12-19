@@ -1,16 +1,17 @@
 const mongoose = require("mongoose");
 
 const fashionSchema = new mongoose.Schema({
-  productCategory: String,
-  productName: String,
-  unitsSold: Number,
-  returns: Number,
-  revenue: Number,
-  customerRating: Number,
-  stockLevel: Number,
-  season: String,
-  trendScore: Number
+  "Product Category": String,
+  "Product Name": String,
+  "Units Sold": Number,
+  "Returns": Number,
+  "Revenue": Number,
+  "Customer Rating": Number,
+  "Stock Level": Number,
+  "Season": String,
+  "Trend Score": Number
 });
+
 
 const Fashion = mongoose.model("Fashion", fashionSchema);
 
