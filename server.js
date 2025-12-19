@@ -1,9 +1,12 @@
 const express = require("express");
+const cors = require("cors");
 const connectDB = require("./db");
 const Fashion = require("./model");
 
-const app = express();
 
+
+const app = express();
+app.use(cors()); 
 app.use(express.json());
 
 const getField = (body, spacedKey, camelKey) =>
